@@ -32,7 +32,7 @@ app.post("/user/signup", async (req, res) => {
       return res.status(400).send("Something is missing");
     }
 
-    //checking before signup that there is exist a user with the same email?
+    //checking before signup that there is exist a user with the same email
     const checkUser = await User.findOne({ email: user.email });
     console.log(checkUser);
     if (checkUser) {
@@ -52,21 +52,48 @@ app.post("/user/signup", async (req, res) => {
   }
 });
 
-app.get("/user/login", async (req, res) => {
+app.post("/user/login", async (req, res) => {
   try {
-    const user = req.body;
-    const userMail = await User.findOne({ email: user.email });
-    if (!userMail) {
-      res.status(400).send("user doesn't exist");
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).send("User doesn't exist");
     }
 
-    const token = jwt.sign({id:user._id},process.env.SECRET_KEY,{expiresIn:'30d'})
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log(isMatch);
 
-    const isMatch = bcrypt.compare(password,user.password);
-    
+    console.log(user.password);
+    console.log(password);
 
+    if (!isMatch) {
+      return res.status(400).send("Invalid password");
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.SECRET_KEY, {
+      expiresIn: "30d",
+    });
+
+    res.cookie("token", token, {
+      httpOnly: false,
+      secure: false,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
+    // 5. Send success response
+    res.status(200).send("Login successful");
   } catch (error) {
-    res.status(404).send(error);
+    res.status(500).send("Internal server error");
+  }
+});
+
+app.post("/user/logout", async (req, res) => {
+  try {
+    res.clearCookie("token");
+    res.status(200).send("Logout ho gaye bhai moye moye");
+  } catch (error) {
+    res.status(400).send(error);
   }
 });
 
